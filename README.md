@@ -10,7 +10,12 @@
 对已发布报告还可基于**同一切片的当前草稿**发起**更正**：生成新的不可变报告与图片快照、
 记录更正原因并串成**更正链**，列表展示每条链的当前有效报告、原因与历史，历史报告按原标识永久可查；
 还可在报告详情输入**间距阈值（μm，允许 0）**做**细胞接触簇分析**：按冻结轮廓与定标计算
-细胞两两**净区域最短间距**、阈值内邻居与**连通簇**，并在报告快照上**高亮**所选簇。
+细胞两两**净区域最短间距**、阈值内邻居与**连通簇**，并在报告快照上**高亮**所选簇；
+还可在「覆盖变化核对」页选择**同一切片的两份不同已发布报告**（含更正链历史报告）并指定
+**基线报告的一个取样视野**，把该视野净区域按两次细胞标注精确分为
+**共同覆盖 / 仅复测覆盖 / 仅基线覆盖 / 始终未覆盖**四类，在基线图片快照上叠加
+**可切换的四类实际区域与边界**，给出各类像素面积、占视野净面积比例与按基线标尺换算的
+物理面积（mm²），四类面积之和恰为视野净面积。
 
 - 技术栈：Node.js（Express）+ SQLite（better-sqlite3）+ 原生 Canvas 前端
 - 图片与数据**全部本地保存**（无任何外部服务依赖）：
@@ -157,11 +162,31 @@
     - 恢复只作用于草稿：**已发布报告与更正链完全不受影响**（发布只推进草稿版本、不产生修订）；
     - 有**未保存的轮廓/视野绘制**时，恢复会弹出确认；离开编辑页、切换切片或刷新/关闭页面
       前同样会先提示确认丢弃未保存绘制。
+16. **跨报告同视野覆盖变化核对（四类分区，只读）**：在顶部导航「覆盖变化核对」页选择
+    **同一切片**的**两份不同**已发布报告（可为更正链上的历史报告），并指定**基线报告**中的
+    一个取样视野，核对该视野内两次细胞标注的覆盖变化。
+    - 划分以**基线报告冻结的视野净区域（外环扣除孔洞）**为母区域，按两份报告冻结的细胞
+      **净区域**逐点分为四类：
+      **共同覆盖**（两次都覆盖）、**仅复测覆盖**（复测新覆盖）、**仅基线覆盖**（复测消失）、
+      **始终未覆盖**（两次都未覆盖）；四类把视野净区域**精确、无重叠划满**——
+      **各类像素面积之和恰为视野净面积**（mm² 同为基线标尺换算，和也相等）；
+    - 沿用单视野覆盖核对的几何语义：**重叠细胞先取并集**（不重复计）、**跨视野边界细胞只计
+      内部部分**、**细胞孔洞、视野孔洞与仅边界接触（零面积）一律不贡献面积**；
+    - 页面在**基线图片快照**上叠加四类**实际区域（半透明填充）与边界**，填充与边界均可
+      **按类别独立开关**；图形由同一平面排列的有向环/边界生成，与数值一一对应；
+    - 表格给出每类的**像素面积（px²）、占视野净面积比例（%）与物理面积（mm²）**及合计行；
+      物理面积**一律按基线报告标尺**换算（面积 ×(μm/px)²÷1e6）；**两份标尺不同**时在页面与
+      响应中**明确提示换算依据**（复测标尺仅展示、不参与本视野换算）；另返回两侧覆盖率、
+      基线/复测各自有正面积交集的细胞名单；
+    - 只读两份报告**发布时冻结数据**：草稿后续修改、重新定标或报告更正都**不改变**旧报告的
+      核对结果；本查询**不写库、不推进版本**；
+    - **相同报告、不同切片、任一报告不存在、基线视野不存在、视野名称歧义**都明确报错
+      （400 / 404）。
 
 ## 配置项
 
-本轮（单视野细胞覆盖核对）**未引入新的环境变量、外部依赖或表结构变更**：核对为只读实时计算，
-不写库。此前各轮的幂等迁移（`fields`、`corrects_report_id`、`correction_reason` 列）
+本轮（跨报告同视野覆盖变化核对）**未引入新的环境变量、外部依赖或表结构变更**：核对为只读
+实时计算，不写库。此前各轮的幂等迁移（`fields`、`corrects_report_id`、`correction_reason` 列）
 在旧数据库启动时自动完成、无需手工变更。沿用既有配置：
 
 | 环境变量 | 默认值 | 说明 |
@@ -269,6 +294,17 @@ npm start
       确认后携带读取时版本提交；若期间草稿被改动会提示版本过期并自动刷新时间线，
       重新选择修订后再恢复；成功后草稿版本与时间线新增一条恢复记录、原历史保留，
       测量与视野统计按恢复的标尺重算，已发布报告与更正链不受影响。
+16. 需要核对**同一切片两次标注**在同一视野内的覆盖变化时，打开顶部导航
+    **覆盖变化核对**：
+    - 在 **①** 面板选择**基线报告**与**复测报告**（两份必须不同、属于同一切片；下拉用
+      「切片 xxxxxxxx」短标签帮助辨认同一切片，更正链上的历史报告也可选择），再选择
+      **基线报告中的取样视野**，点 **核对覆盖变化**；
+    - 右侧画布在**基线图片快照**上叠加四类实际区域（共同覆盖＝青、仅复测＝绿、
+      仅基线＝橙、始终未覆盖＝灰），左侧 **②** 面板每类有两个勾选框可分别开关
+      **填充**与**边界**；表格列出各类像素面积、占视野净面积比例与物理面积 mm²，
+      合计行恒等于视野净面积；
+    - 两份报告标尺不同时，面板顶部黄色提示换算依据（一律按基线标尺）；
+      相同报告、不同切片、报告/视野不存在、视野重名都会在顶部红字报错，且不写入任何数据。
 
 ## 目录结构
 
@@ -288,9 +324,10 @@ npm start
 │   ├── revisions.js   # 草稿修订时间线：成功写入同事务追加完整快照、旧草稿基线补建、恢复
 │   ├── transfer.js    # 细胞迁移：三点对应点校验、仿射求解、整批映射+逐细胞校验
 │   ├── clusters.js    # 接触簇：阈值校验、净区域最短间距（含孔洞语义）、邻接对与连通簇
+│   ├── coverage-diff.js # 跨报告同视野覆盖变化四类分区（共用平面排列；服务端/页端共用 UMD）
 │   ├── render.js      # sharp + SVG 渲染标注 PNG
 │   └── exporter.js    # CSV（测量/汇总/视野统计/比较）与 ZIP 导出
-├── public/            # 前端（原生 JS，无需构建）
+├── public/            # 前端（原生 JS，无需构建；coverage-diff-view.js 为覆盖变化核对页）
 ├── test-geometry.js   # 几何自测（npm test）
 ├── test-fields.js     # 视野密度统计自测（npm test）
 ├── test-merge.js      # 多视野合并统计自测（npm test）
@@ -301,6 +338,8 @@ npm start
 ├── test-clusters.js   # 接触簇纯逻辑自测（npm test）
 ├── test-contacts-api.js # 接触簇端到端 HTTP 自测（npm test，临时目录起服务）
 ├── test-revisions-api.js # 草稿修订时间线/恢复端到端 HTTP 自测（npm test，临时目录起服务）
+├── test-coverage-diff.js # 跨报告覆盖变化四类分区纯几何自测（npm test）
+├── test-coverage-diff-api.js # 跨报告覆盖变化端到端 HTTP 自测（npm test，临时目录起服务）
 └── data/              # 运行后生成：app.db、images/、snapshots/
 ```
 
@@ -647,6 +686,134 @@ async function fieldCoverage(pathKind, id, fieldId) {
 await fieldCoverage('images', process.env.IMG, 'f1');
 // 报告：只读取发布时冻结数据（后续草稿修改/报告更正不影响旧报告）
 await fieldCoverage('reports', process.env.RID, '视野1');
+```
+
+## 跨报告同视野覆盖变化核对 HTTP 接口（四类分区，只读）
+
+选择**同一切片**的**两份不同**已发布报告（含更正链历史报告），并指定**基线报告**中的一个
+取样视野，返回该视野净区域按两次细胞标注的**四类精确划分**（共同覆盖 / 仅复测覆盖 /
+仅基线覆盖 / 始终未覆盖）。接口**只读**两份报告发布时冻结数据，不写库、不推进版本；
+草稿后续修改或报告更正都不改变旧报告结果。
+
+`POST /api/reports/:id/coverage-diff`
+
+- 路径 `:id` 为**基线报告** id；请求体：
+
+```json
+{ "retestReportId": "<复测报告 id>", "fieldId": "<基线报告中的视野 id 或名称>" }
+```
+
+- 两份报告必须 `image_id` 相同（同一切片）且冻结宽高一致；`fieldId` 在**基线报告**冻结
+  `fields` 中按 id 优先、否则按名称（trim 精确）匹配。
+
+错误语义：
+
+- 缺少/为空的 `retestReportId`、`fieldId` → **400**；
+- 基线与复测是**同一份报告** → **400**（明确必须两份不同）；
+- 两份报告**不属于同一切片**（或冻结尺寸不一致）→ **400**；
+- 基线视野**不存在 / 不属于基线报告** → **400**；视野**名称重名歧义** → **400**（提示改用 id）；
+- 基线报告不存在 → **404**；复测报告不存在 → **404**。
+
+成功响应（字段顺序：`both / retestOnly / baselineOnly / none`；为简洁省略了可渲染环坐标）：
+
+```json
+{
+  "scope": "coverage-diff",
+  "baselineReportId": "…", "retestReportId": "…", "imageId": "<同一切片>",
+  "baselineTitle": "切片A 基线报告", "retestTitle": "切片A 复测报告",
+  "baselineDraftVersion": 4, "retestDraftVersion": 8,
+  "matchedBy": "id",
+  "diff": {
+    "kind": "coverage-diff",
+    "fieldName": "中心视野", "fieldHoles": 0, "width": 300, "height": 300,
+    "fieldAreaPx": 10000, "fieldAreaMm2": 0.01, "fieldAreaText": "0.01",
+    "categories": [
+      { "id": "both",        "label": "共同覆盖",
+        "areaPx": 2500, "areaMm2": 0.0025, "ratio": 0.25, "percent": 25,
+        "percentText": "25%", "areaText": "0.0025",
+        "loops": [ [ {"x":0,"y":0}, "…有向边界圈（CCW外/CW孔）…" ] ],
+        "boundaries": [ [ {"x":…,"y":…}, {"x":…,"y":…} ] ] },
+      { "id": "retestOnly",  "label": "仅复测覆盖",   "areaPx": 2500, "…": "…" },
+      { "id": "baselineOnly","label": "仅基线覆盖",   "areaPx": 2500, "…": "…" },
+      { "id": "none",        "label": "始终未覆盖",   "areaPx": 2500, "…": "…" }
+    ],
+    "sumAreaPx": 10000, "sumAreaMm2": 0.01,
+    "baselineCoveredPx": 5000, "retestCoveredPx": 5000,
+    "baselineCoveredRatio": 0.5, "retestCoveredRatio": 0.5,
+    "calibrated": true,
+    "baselineScaleUmPerPx": 1, "retestScaleUmPerPx": 1, "scalesDiffer": false,
+    "scaleBasis": "本视野全部物理面积（mm²）均按【基线标尺】1 px = 1 μm 换算……两份报告标尺一致。",
+    "contributingBaselineCells": [ { "key": "cellA", "name": "甲" } ],
+    "contributingRetestCells":   [ { "key": "cellC", "name": "丙" } ]
+  }
+}
+```
+
+要点：
+
+- **四类 `areaPx` 之和恒等于 `fieldAreaPx`（基线视野净面积）**；`areaMm2` 同为基线标尺换算，
+  其和等于 `fieldAreaMm2`（响应已做取整对齐，页面合计行可直接核对）；
+- `categories[].loops` 为该类的全部**有向**边界圈（外环 CCW、孔洞内圈 CW），前端把同类各环
+  放入同一 path 以**非零缠绕**规则一次性填充即自动挖洞；`boundaries` 为该类与其它类（或视野
+  净区域外侧）之间的**跨类边界**线段（仅边界接触两侧同类，不产生边界）；页面图形与数值由
+  同一份平面排列生成，**一一对应**；
+- 物理面积**一律按基线标尺**换算；两份标尺不同时 `scalesDiffer:true`，`scaleBasis` 明确说明
+  换算依据并指出复测标尺（`retestScaleUmPerPx`）不参与本视野换算；
+- 重叠细胞先取**并集**（不重复计）、跨边界细胞只计内部、孔洞/仅边界接触不贡献；
+  `contributing*Cells` 列出各自与视野有正面积净交集的细胞。
+
+curl 示例（`BASE`=基线报告，`RETEST`=复测报告）：
+
+```bash
+# 按视野 id 核对
+curl -s -X POST http://localhost:8080/api/reports/$BASE/coverage-diff \
+  -H 'Content-Type: application/json' \
+  -d "{\"retestReportId\":\"$RETEST\",\"fieldId\":\"f1\"}" | jq '.diff |
+    {fieldName, fieldAreaPx, sumAreaPx,
+     categories: [.categories[] | {label, areaPx, percentText, areaMm2}],
+     scalesDiffer, scaleBasis}'
+
+# 按视野名称核对（自动忽略首尾空白）
+curl -s -X POST http://localhost:8080/api/reports/$BASE/coverage-diff \
+  -H 'Content-Type: application/json' \
+  -d "{\"retestReportId\":\"$RETEST\",\"fieldId\":\"中心视野\"}"
+
+# 相同报告 → 400；不同切片 → 400；基线视野不存在/重名 → 400；任一报告不存在 → 404
+curl -s -X POST http://localhost:8080/api/reports/$BASE/coverage-diff \
+  -H 'Content-Type: application/json' -d "{\"retestReportId\":\"$BASE\",\"fieldId\":\"f1\"}"
+# -> { "error": "基线与复测必须是两份不同的报告（不能选择同一份报告），请求被拒绝" }
+```
+
+Node.js 示例（无第三方依赖；只读冻结数据，可重复调用）：
+
+```js
+const base = 'http://localhost:8080';
+
+async function coverageDiff(baselineReportId, retestReportId, fieldId) {
+  const res = await fetch(`${base}/api/reports/${baselineReportId}/coverage-diff`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ retestReportId, fieldId })
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const e = new Error(body.error || `HTTP ${res.status}`);
+    e.status = res.status; // 400：相同报告/不同切片/视野不存在或歧义；404：报告不存在
+    throw e;
+  }
+  const d = body.diff;
+  console.log(`《${body.baselineTitle}》 ↔ 《${body.retestTitle}》 · 视野 ${d.fieldName}`);
+  for (const c of d.categories) {
+    console.log(`${c.label}：${c.areaPx} px²（${c.percentText}）· ${c.areaMm2 ?? '待定标'} mm²`);
+  }
+  console.log(`合计 ${d.sumAreaPx} px² = 视野净面积 ${d.fieldAreaPx} px²` +
+              `（基线覆盖率 ${(d.baselineCoveredRatio * 100).toFixed(2)}% → ` +
+              `复测 ${(d.retestCoveredRatio * 100).toFixed(2)}%）`);
+  if (d.scalesDiffer) console.log(`⚠ ${d.scaleBasis}`);
+  return body; // 含 categories[].loops / boundaries，可直接在基线快照上叠加四类区域
+}
+
+await coverageDiff(process.env.BASE, process.env.RETEST, 'f1');
 ```
 
 ## 细胞迁移 HTTP 接口（三点对应仿射变换）
@@ -1068,6 +1235,7 @@ const result = await API.restoreRevision(imgId, revisions[2].id, currentVersion)
 | **`POST /api/reports/:id/correct`** | **发起更正：`{reason, draftVersion, expectedTipId, title?}`；过期 409 返回最新信息；失败不留报告/快照** |
 | **`POST /api/reports/:id/field-merge`** | **报告内多视野合并统计（只读，只取发布时冻结数据；不足两个/重复/不存在 400）** |
 | **`POST /api/reports/:id/field-coverage`** | **报告内单视野细胞覆盖核对（只读，几何交集；只取发布时冻结数据；视野标识为空/不存在/不属于该报告 400，报告不存在 404）** |
+| **`POST /api/reports/:id/coverage-diff`** | **跨报告同视野覆盖变化核对（只读，四类分区）：`{retestReportId, fieldId}`，:id 为基线报告；相同报告/不同切片/视野不存在或歧义 400，任一报告不存在 404；只取两份冻结数据** |
 | **`POST /api/reports/:id/contacts`** | **细胞接触簇分析（只读）：`{thresholdUm}`（μm，允许 0）→ 阈值内邻居/最短净区域间距/连通簇；阈值负数或非有限数 400，报告不存在 404** |
 | `GET /api/reports/:id/file` / `/png` | 发布时图片快照 / 标注 PNG |
 | `GET /api/reports/:id/csv` | 测量 CSV（μm²，原义不变） |

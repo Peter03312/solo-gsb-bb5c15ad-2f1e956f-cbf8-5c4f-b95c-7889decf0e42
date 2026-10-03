@@ -13,6 +13,7 @@
       <a href="#/" data-nav="home">草稿与图片</a>
       <a href="#/reports" data-nav="reports">已发布报告</a>
       <a href="#/comparisons" data-nav="comparisons">报告比较</a>
+      <a href="#/coverage-diff" data-nav="coverage-diff">覆盖变化核对</a>
     </nav>
   </header>
 
@@ -323,13 +324,64 @@
     </div>
   </section>
 
+  <section id="view-coverage-diff" class="view hidden">
+    <div class="editor-layout">
+      <aside class="sidebar">
+        <div class="side-head">
+          <a href="#/reports" class="back">← 返回报告列表</a>
+        </div>
+        <h2 class="filename">跨报告同视野覆盖变化核对</h2>
+        <div class="panel">
+          <h3>① 选择两份报告与基线视野</h3>
+          <p class="hint">选择<b>同一切片</b>的两份<b>不同</b>已发布报告（含更正链历史报告），
+            并指定<b>基线报告</b>中的一个取样视野。核对只读取两份报告<b>冻结</b>的细胞净区域、
+            视野净区域与标尺；草稿后续修改或报告更正都不改变旧报告结果。本查询为<b>只读</b>。</p>
+          <label>基线报告
+            <select id="cd-baseline"></select>
+          </label>
+          <label>复测报告
+            <select id="cd-retest"></select>
+          </label>
+          <label>基线报告中的取样视野
+            <select id="cd-field"></select>
+          </label>
+          <div class="toolbar wrap">
+            <button id="cd-run" class="primary small">核对覆盖变化</button>
+          </div>
+          <div id="cd-error" class="cmp-error hidden"></div>
+        </div>
+
+        <div class="panel hidden" id="cd-result-panel">
+          <h3>② 四类覆盖区域（基线视野净区域精确划分）</h3>
+          <div id="cd-scale-note" class="hint"></div>
+          <div id="cd-toggles" class="cd-toggles"></div>
+          <table class="measure compact" id="cd-table"></table>
+          <p class="hint" id="cd-identity"></p>
+          <p class="hint">
+            <b>共同覆盖</b>：两次都标注；<b>仅复测覆盖</b>：复测新覆盖；
+            <b>仅基线覆盖</b>：复测消失；<b>始终未覆盖</b>：两次都未覆盖。<br>
+            重叠细胞先取并集；细胞/视野孔洞、仅边界接触不贡献面积；
+            物理面积（mm²）一律按<b>基线标尺</b>换算。
+          </p>
+          <div id="cd-cells"></div>
+        </div>
+      </aside>
+      <main class="canvas-wrap">
+        <canvas id="coverage-diff-canvas"></canvas>
+        <div id="cd-zoom" class="zoom-indicator">100%</div>
+      </main>
+    </div>
+  </section>
+
   <script src="/geometry-client.js"></script>
   <script src="/merge-stats.js"></script>
+  <script src="/coverage-diff.js"></script>
   <script src="/api.js"></script>
   <script src="/canvas-view.js"></script>
   <script src="/editor.js"></script>
   <script src="/reports.js"></script>
   <script src="/compare.js"></script>
+  <script src="/coverage-diff-view.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

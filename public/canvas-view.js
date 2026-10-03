@@ -255,6 +255,9 @@ class CanvasView {
       });
     }
 
+    // 跨报告覆盖变化核对：四类实际区域填充 + 各类边界（各自可独立开关）
+    if (st.coverageOverlay) this.drawCoverageOverlay(ctx, st.coverageOverlay);
+
     // 正在绘制的环
     if (st.drawing) {
       const isHole = st.drawing.kind === 'hole' || st.drawing.kind === 'fieldhole';
@@ -354,6 +357,52 @@ class CanvasView {
         ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
       }
     }
+  }
+
+  // 跨报告覆盖变化核对叠加层。
+  // overlay: { categories: [{id, color, loops, boundaries}], fills:Set<id>, borders:Set<id> }
+  // loops 为该类全部【有向】边界圈（CCW 外圈 / CW 孔洞内圈），用非零缠绕规则一次性填充：
+  // 孔洞环自动挖空。先画全部填充（同类面不重叠、无叠加加深），再画各类跨类边界。
+  drawCoverageOverlay(ctx, overlay) {
+    const cats = overlay.categories || [];
+    const fills = overlay.fills;
+    const borders = overlay.borders;
+
+    const traceLoop = (pts) => {
+      if (!pts || pts.length < 3) return;
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.closePath();
+    };
+
+    // 填充：每一类所有有向环合并进一条 PATH，nonzero 填充自动挖掉孔洞
+    cats.forEach((c) => {
+      if (!fills || !fills.has(c.id)) return;
+      ctx.beginPath();
+      (c.loops || []).forEach((ring) => traceLoop(ring));
+      ctx.fillStyle = c.fill || (c.color + '59');
+      ctx.fill('nonzero');
+    });
+
+    // 边界：逐段绘制跨类边界（含视野外环、视野孔洞环、细胞覆盖分界线）
+    cats.forEach((c) => {
+      if (!borders || !borders.has(c.id)) return;
+      const segs = c.boundaries || [];
+      if (!segs.length) return;
+      ctx.beginPath();
+      segs.forEach((seg) => {
+        if (!seg || seg.length < 2) return;
+        ctx.moveTo(seg[0].x, seg[0].y);
+        ctx.lineTo(seg[1].x, seg[1].y);
+      });
+      ctx.strokeStyle = c.color;
+      ctx.lineWidth = (overlay.borderWidth || 2) / this.k;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.setLineDash(overlay.dashed ? [6 / this.k, 4 / this.k] : []);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
   }
 
   drawField(ctx, field, index, total, active) {

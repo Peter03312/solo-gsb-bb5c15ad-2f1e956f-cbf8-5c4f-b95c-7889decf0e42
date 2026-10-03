@@ -123,6 +123,14 @@ const API = {
       body: JSON.stringify({ thresholdUm })
     }));
   },
+  // 跨报告同视野覆盖变化核对：基线报告（路径）+ 复测报告 + 基线视野（只读，取冻结数据）
+  async reportCoverageDiff(baselineReportId, retestReportId, fieldId) {
+    return jsonOrThrow(await fetch(`/api/reports/${baselineReportId}/coverage-diff`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ retestReportId, fieldId })
+    }));
+  },
   async listReports() {
     return jsonOrThrow(await fetch('/api/reports'));
   },

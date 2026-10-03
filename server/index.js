@@ -12,6 +12,7 @@ const geo = require('./geometry');
 const cmp = require('./compare');
 const fieldsSvc = require('./fields');
 const mergeSvc = require('./merge-stats');
+const coverageDiffSvc = require('./coverage-diff');
 const transfer = require('./transfer');
 const corrections = require('./corrections');
 const clustersSvc = require('./clusters');
@@ -31,6 +32,10 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 // 合并统计模块为服务端/页端共用的同一份几何实现（UMD），直接按脚本暴露给浏览器
 app.get('/merge-stats.js', (_req, res) => {
   res.sendFile(path.join(__dirname, 'merge-stats.js'));
+});
+// 跨报告覆盖变化核对模块同为服务端/页端共用的同一份几何实现（UMD），直接暴露给浏览器
+app.get('/coverage-diff.js', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'coverage-diff.js'));
 });
 
 const ALLOWED_MIME = new Set(['image/png', 'image/jpeg', 'image/webp']);
@@ -780,6 +785,46 @@ app.post('/api/reports/:id/field-coverage', (req, res) => {
     calibrated: !!report.calib,
     matchedBy: resolved.matchBy,
     coverage
+  });
+});
+
+// ---------- 跨报告同视野覆盖变化核对（只读；两份报告均取发布时冻结数据） ----------
+//
+// 请求体：{ retestReportId: string, fieldId: string }。
+// 路径参数 :id 为【基线报告】；fieldId 为基线报告中的视野 id 或名称。
+// 两份报告必须不同、属于同一切片（image_id 相同、冻结尺寸一致）；
+// 只使用发布时冻结数据：草稿后续修改或报告更正不改变旧报告结果。
+// 错误语义：相同报告 / 不同切片 / 视野为空 / 视野不存在 / 名称歧义 → 400；
+//           任一份报告不存在 → 404。查询为只读，不写回任何报告。
+app.post('/api/reports/:id/coverage-diff', (req, res) => {
+  const baseline = getReportOr404(req.params.id);
+  if (!baseline) return res.status(404).json({ error: '基线报告不存在' });
+  const body = req.body || {};
+  const retestId = body.retestReportId;
+  const retest = typeof retestId === 'string' && retestId ? getReportOr404(retestId) : null;
+  try {
+    coverageDiffSvc.validateReports(baseline, retest, req.params.id, retestId);
+  } catch (e) {
+    return res.status(e.status || 400).json({ error: e.message });
+  }
+  let resolved;
+  try {
+    resolved = coverageDiffSvc.resolveBaselineField(baseline.fields, body.fieldId);
+  } catch (e) {
+    return res.status(e.status || 400).json({ error: e.message });
+  }
+  const diff = coverageDiffSvc.buildCoverageDiff(baseline, retest, resolved.field);
+  res.json({
+    scope: 'coverage-diff',
+    baselineReportId: baseline.id,
+    retestReportId: retest.id,
+    imageId: baseline.imageId, // 同一切片
+    baselineTitle: baseline.title,
+    retestTitle: retest.title,
+    baselineDraftVersion: baseline.draftVersion,
+    retestDraftVersion: retest.draftVersion,
+    matchedBy: resolved.matchBy,
+    diff
   });
 });
 

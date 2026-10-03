@@ -289,9 +289,11 @@
     for (const start of halfEdges) {
       if (start.visited) continue;
       const pts = [];
+      const faceIdx = loops.length; // 该面（圈组）在 loops 中的编号
       let he = start;
       do {
         he.visited = true;
+        he.face = faceIdx; // 半边缘左侧所属面编号：供跨面边界提取（覆盖变化核对）
         pts.push(he.from);
         he = he.next;
       } while (he && he !== start);

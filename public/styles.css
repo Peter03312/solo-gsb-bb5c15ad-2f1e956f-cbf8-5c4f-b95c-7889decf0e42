@@ -361,3 +361,17 @@ table.cmp-table td.num { text-align: right; }
 .rev-preview-banner .err { color: var(--warn); }
 .rev-preview-section { margin: 8px 0; font-size: 12px; }
 .rev-preview-section b { color: var(--accent); }
+
+/* 跨报告同视野覆盖变化核对 */
+.cd-toggles { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.cd-toggle {
+  display: flex; align-items: center; gap: 8px; font-size: 13px;
+  border: 1px solid var(--line); border-radius: 8px; padding: 5px 9px; background: var(--panel2);
+}
+.cd-toggle input[type="checkbox"] { margin: 0; }
+.cd-swatch {
+  display: inline-block; width: 13px; height: 13px; border-radius: 3px;
+  border: 1px solid rgba(255,255,255,.35); flex: 0 0 auto;
+}
+.cd-sum td, .cd-sum th { border-top: 2px solid var(--line); font-weight: 700; }
+.cd-scale-warn { color: #ffd400; font-weight: 700; }
