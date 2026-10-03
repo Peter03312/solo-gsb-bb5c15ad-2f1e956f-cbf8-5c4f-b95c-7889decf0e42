@@ -170,6 +170,14 @@ const API = {
       body: JSON.stringify(payload)
     }));
   },
+  // 同切片两报告 · 单视野覆盖变化核对（只读；只取发布时冻结数据）
+  async reportFieldCoverageDiff(payload) {
+    return jsonOrThrow(await fetch('/api/reports/field-coverage-diff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }));
+  },
   comparisonCsvUrl(id) { return `/api/comparisons/${id}/csv`; }
 };
 

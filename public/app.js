@@ -4,7 +4,7 @@
 
 const App = {
   views: ['view-home', 'view-editor', 'view-reports', 'view-report-detail',
-          'view-comparisons', 'view-compare-editor'],
+          'view-comparisons', 'view-compare-editor', 'view-coverage-diff'],
   _suppressGuard: 0,    // 因拦截而还原 hash 触发的二次路由：跳过守卫（计数，避免竞态）
   _reentering: null,    // 还原 hash 后重入同一编辑器时跳过 Editor.open
 
@@ -35,7 +35,8 @@ const App = {
       a.classList.toggle('active',
         (id === 'view-home' && a.dataset.nav === 'home') ||
         ((id === 'view-reports' || id === 'view-report-detail') && a.dataset.nav === 'reports') ||
-        ((id === 'view-comparisons' || id === 'view-compare-editor') && a.dataset.nav === 'comparisons'));
+        ((id === 'view-comparisons' || id === 'view-compare-editor') && a.dataset.nav === 'comparisons') ||
+        (id === 'view-coverage-diff' && a.dataset.nav === 'coverage-diff'));
     });
   },
 
@@ -134,6 +135,10 @@ const App = {
       this.show('view-comparisons');
       window.scrollTo(0, 0);
       await Compare.showList();
+    } else if (page === 'coverage-diff') {
+      this.show('view-coverage-diff');
+      window.scrollTo(0, 0);
+      await CoverageDiffView.open();
     } else if (page === 'reports') {
       Reports.hideDetail();
       this.show('view-reports');
@@ -148,6 +153,7 @@ const App = {
 
   init() {
     Editor.bindUI();
+    CoverageDiffView.bindUI();
 
     document.getElementById('cmp-load').onclick = () => Compare.loadPickedReports();
     document.getElementById('cmp-save').onclick = () => Compare.save();

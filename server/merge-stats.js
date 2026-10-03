@@ -314,8 +314,30 @@
     return sum;
   }
 
-  function buildUnionContext(fields) {
-    const ctx = buildArrangement(fields);
+  // 沿半边缘重新遍历所有面边界圈，返回与 ctx.loops 同顺序的闭合顶点数组。
+  // 与 buildArrangement 内部成圈过程一致（halfEdges 顺序、next 指针相同），
+  // 供需要把面积归属结果画成实际区域的调用方重建每类的外环/孔洞多边形。
+  function traceFaceLoops(ctx) {
+    const result = [];
+    let loopPos = 0;
+    const visitedSet = new Set();
+    for (const start of ctx.halfEdges) {
+      if (visitedSet.has(start)) continue;
+      const pts = [];
+      let he = start;
+      do {
+        visitedSet.add(he);
+        pts.push(he.from);
+        he = he.next;
+      } while (he && he !== start);
+      // 内部构建时不闭合的圈（防御）也跳过，与 ctx.loops 收集条件保持一致
+      if (he) result[loopPos] = pts;
+      loopPos += 1;
+    }
+    return result;
+  }
+
+  function buildUnionContext(fields) {    const ctx = buildArrangement(fields);
     const unionAreaPx = signedAreaByPredicate(ctx.loops, (q) =>
       ctx.shapes.some((f) => pointInFieldNet(q, f)));
     return {
@@ -590,6 +612,7 @@
     resolveMergeSelection,
     buildUnionContext,
     buildArrangement,
+    traceFaceLoops,
     pointStrictlyInUnion,
     buildMergeStats,
     resolveFieldIdentifier,

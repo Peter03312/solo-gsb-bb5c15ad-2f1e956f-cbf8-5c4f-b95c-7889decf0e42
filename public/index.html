@@ -13,6 +13,7 @@
       <a href="#/" data-nav="home">草稿与图片</a>
       <a href="#/reports" data-nav="reports">已发布报告</a>
       <a href="#/comparisons" data-nav="comparisons">报告比较</a>
+      <a href="#/coverage-diff" data-nav="coverage-diff">覆盖变化核对</a>
     </nav>
   </header>
 
@@ -242,6 +243,54 @@
     </div>
   </section>
 
+  <section id="view-coverage-diff" class="view hidden">
+    <div class="card">
+      <div class="cmp-head">
+        <a href="#/reports" class="back">← 返回已发布报告</a>
+      </div>
+      <h2>同切片两报告 · 单视野细胞覆盖变化核对</h2>
+      <p class="hint">选择<b>同一切片</b>的两份<b>不同已发布报告</b>（可取更正链中的历史报告与链末端），
+        并指定<b>基线报告冻结的一个取样视野</b>。核对只读取两份报告发布时冻结的细胞净区域
+        （外环扣除孔洞，重叠细胞先取并集）与基线视野净区域，将视野精确分为
+        <b style="color:#2e7d32">共同覆盖</b>、<b style="color:#1565c0">仅复测覆盖</b>、
+        <b style="color:#c62828">仅基线覆盖</b>、<b style="color:#757575">始终未覆盖</b>四类。
+        跨视野边界细胞只计内部部分、孔洞与仅边界接触不贡献面积；四类面积之和等于视野净面积。
+        物理面积按<b>基线报告冻结标尺</b>换算；两份标尺不同时会明确提示换算依据。
+        查询为只读，草稿后续修改或报告更正都不改变旧报告结果。</p>
+
+      <div id="covdiff-error" class="cmp-error hidden"></div>
+
+      <div class="cmp-pick-row">
+        <label>基线报告
+          <select id="covdiff-baseline"></select>
+        </label>
+        <label>复测报告
+          <select id="covdiff-retest"></select>
+        </label>
+        <label>基线取样视野
+          <select id="covdiff-field"></select>
+        </label>
+        <button id="covdiff-run" class="primary small">核对覆盖变化</button>
+      </div>
+    </div>
+
+    <div id="covdiff-result" class="hidden">
+      <div class="card covdiff-summary-card">
+        <div id="covdiff-meta" class="covdiff-meta"></div>
+        <div id="covdiff-scale-note" class="covdiff-scale-note"></div>
+        <div id="covdiff-table" class="covdiff-table"></div>
+      </div>
+      <div class="card">
+        <h3>基线图片快照叠加（四类可切换）</h3>
+        <div class="toolbar wrap" id="covdiff-toggles"></div>
+        <div class="covdiff-canvas-box">
+          <img id="covdiff-img" alt="基线报告图片快照" />
+          <svg id="covdiff-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section id="view-report-detail" class="view hidden">
     <div class="editor-layout">
       <aside class="sidebar">
@@ -330,6 +379,7 @@
   <script src="/editor.js"></script>
   <script src="/reports.js"></script>
   <script src="/compare.js"></script>
+  <script src="/coverage-diff-view.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

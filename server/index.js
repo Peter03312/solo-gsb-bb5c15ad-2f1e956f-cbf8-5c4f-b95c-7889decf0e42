@@ -16,6 +16,7 @@ const transfer = require('./transfer');
 const corrections = require('./corrections');
 const clustersSvc = require('./clusters');
 const revisionsSvc = require('./revisions');
+const coverageDiffSvc = require('./coverage-diff');
 const { renderAnnotatedPng } = require('./render');
 const { buildReportCsv, buildCombinedCsv, buildComparisonCsv, buildFieldStatsCsv, streamZip } = require('./exporter');
 
@@ -780,6 +781,61 @@ app.post('/api/reports/:id/field-coverage', (req, res) => {
     calibrated: !!report.calib,
     matchedBy: resolved.matchBy,
     coverage
+  });
+});
+
+// ---------- 同切片两报告 · 单视野细胞覆盖变化核对（只读；只使用发布时冻结数据） ----------
+//
+// 请求体：{ baselineReportId, retestReportId, fieldId }
+// 指定基线报告冻结的一个取样视野，按两份报告冻结的细胞净区域（重叠细胞先取并集）
+// 与基线视野净区域，把视野精确分为：共同覆盖 / 仅复测覆盖 / 仅基线覆盖 / 始终未覆盖。
+// 返回各类像素面积、占视野净面积比例、按基线冻结标尺换算的物理面积（mm²），
+// 以及可在基线图片快照上叠加、逐类切换的实际区域与边界几何。
+// 相同报告、不同切片、报告不存在、视野不存在或名称歧义均明确报错；查询不写回任何数据。
+app.post('/api/reports/field-coverage-diff', (req, res) => {
+  let resolved;
+  try {
+    resolved = coverageDiffSvc.resolveDiffQuery(req.body || {}, getReportOr404);
+  } catch (e) {
+    return res.status(e.status || 400).json({ error: e.message });
+  }
+  const { baseline, retest, field, matchedBy } = resolved;
+
+  let diff;
+  try {
+    diff = coverageDiffSvc.buildCoverageDiff(baseline, retest, field);
+  } catch (e) {
+    return res.status(500).json({ error: `覆盖变化核对失败：${e.message}` });
+  }
+
+  res.json({
+    scope: 'report-diff',
+    baseline: {
+      reportId: baseline.id,
+      title: baseline.title,
+      filename: baseline.filename,
+      imageId: baseline.imageId,
+      draftVersion: baseline.draftVersion,
+      width: baseline.width,
+      height: baseline.height,
+      scaleUmPerPx: baseline.calib ? baseline.calib.scale : null,
+      snapshotUrl: `/api/reports/${baseline.id}/file`,
+      correctsReportId: baseline.correctsReportId || null,
+      createdAt: baseline.createdAt
+    },
+    retest: {
+      reportId: retest.id,
+      title: retest.title,
+      filename: retest.filename,
+      imageId: retest.imageId,
+      draftVersion: retest.draftVersion,
+      scaleUmPerPx: retest.calib ? retest.calib.scale : null,
+      correctsReportId: retest.correctsReportId || null,
+      createdAt: retest.createdAt
+    },
+    sameSliceImageId: baseline.imageId,
+    matchedBy,
+    diff
   });
 });
 
